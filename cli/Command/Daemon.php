@@ -8,6 +8,9 @@ declare(strict_types = 1);
 
 namespace Cli\Command;
 
+use Cli\Utils;
+use idOS\SDK;
+use idOS\Auth\CredentialToken;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger as Monolog;
 use Monolog\Processor\ProcessIdProcessor;
@@ -21,7 +24,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Command definition for CRA Daemon.
  */
-class Daemon extends Command {
+class Daemon extends AbstractCommand {
     /**
      * Command configuration.
      *
@@ -96,7 +99,7 @@ class Daemon extends Command {
         // Gearman Worker function name setup
         $functionName = $input->getArgument('functionName');
         if ((empty($functionName)) || (! preg_match('/^[a-zA-Z0-9\._-]+$/', $functionName))) {
-            $functionName = 'idos-cra';
+            $functionName = 'cra';
         }
 
         $handlerPublicKey  = $input->getArgument('handlerPublicKey');
@@ -128,6 +131,7 @@ class Daemon extends Command {
 
         $jobCount = 0;
         $lastJob  = 0;
+        $traceSmartHandler = new Utils\TraceSmart($this->config['tracesmart']);
 
         /*
          * Payload content:
@@ -135,10 +139,10 @@ class Daemon extends Command {
          */
         $gearman->addFunction(
             $functionName,
-            function (\GearmanJob $job) use ($logger, $handlerPublicKey, $handlerPrivateKey, $devMode, &$jobCount, &$lastJob) {
+            function (\GearmanJob $job) use ($traceSmartHandler, $logger, $handlerPublicKey, $handlerPrivateKey, $devMode, &$jobCount, &$lastJob) {
                 $logger->info('CRA job added');
                 $jobData = json_decode($job->workload(), true);
-                if ($jobData === null) {
+                if ($jobData === null || ! isset($jobData['publicKey']) || ! isset($jobData['sourceId']) || ! isset($jobData['userName'])) {
                     $logger->warning('Invalid Job Workload!');
                     $job->sendComplete('invalid');
 
@@ -148,7 +152,50 @@ class Daemon extends Command {
                 $jobCount++;
                 $init = microtime(true);
 
-                // FIXME to be implemented!
+                $result = null;
+                switch($jobData['provider']) {
+                    case 'tracesmart':
+                        $setup = isset($jobData['data']['setup']) ? $jobData['data']['setup'] : '';
+                        $param = isset($jobData['data']['param']) ? $jobData['data']['param'] : '';
+                        unset($jobData['data']['setup']);
+                        unset($jobData['data']['param']);
+                        
+                        $fields = $jobData['data'];
+                        $result = $traceSmartHandler->execute($setup, $fields, $param);
+                        break;
+
+                    default:
+                        $logger->warning('Invalid Job Workload!');
+                        $job->sendComplete('invalid');
+
+                        return;
+                }
+
+                if ($result !== null) {
+                    $sdk = SDK::create(new CredentialToken($jobData['publicKey'], $handlerPublicKey, $handlerPrivateKey));
+
+                    if ($devMode) {
+                        $sdk
+                            ->setBaseUrl(getenv('IDOS_API_URL') ?: 'https://api.idos.io/1.0/')
+                            ->setClient(
+                                new \GuzzleHttp\Client(
+                                    [
+                                        'verify'   => false
+                                    ]
+                                )
+                            );
+                    }
+
+                    $rawEndpoint = $sdk
+                        ->Profile($jobData['userName'])
+                        ->Raw;
+
+                    $apiResult = $rawEndpoint->upsertOne(
+                        $jobData['sourceId'],
+                        'tracesmart',
+                        $result
+                    );
+                }
 
                 $logger->info('Job completed', ['time' => microtime(true) - $init]);
                 $job->sendComplete('ok');
