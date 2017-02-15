@@ -11,6 +11,8 @@ You need to set some environment variables in order to configure the CRA daemon,
 * `IDOS_GEARMAN_SERVERS`: a list of gearman servers that the daemon will register on (default: 'localhost:4730');
 * `IDOS_CRA_TRACESMART_ENDPOINT`: the URL for the TraceSmart API endpoint (default: 'https://iduws.tracesmart.co.uk/v3.3/?wsdl').
 
+You may also set these variables using a `.env` file in the project root.
+
 # Running
 
 In order to start the CRA daemon you should run in the terminal:
