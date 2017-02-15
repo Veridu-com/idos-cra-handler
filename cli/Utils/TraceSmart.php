@@ -8,7 +8,7 @@ declare(strict_types = 1);
 namespace Cli\Utils;
 
 /**
- * Command definition for Process-based Daemon.
+ * Util class for TraceSmart.
  */
 class TraceSmart {
     private $wsdl;
@@ -26,6 +26,14 @@ class TraceSmart {
         $this->setup = $settings['fields'];
     }
 
+	/**
+     * Build the parameters used in the TraceSmart request.
+     *
+     * @param array  $fields
+     * @param array  $param
+     *
+     * @return array
+     */
 	private function buildParams(array $fields, array $param) {
 		$params = new \stdClass;
 
@@ -204,6 +212,14 @@ class TraceSmart {
 		return $params;
 	}
 
+	/**
+     * Additional tweaks for the parameters sent to the TraceSmart request.
+     *
+     * @param mixed  $params
+     * @param array  $setup
+     *
+     * @return array
+     */
 	private function setup(&$params, array $setup) {
 		$params->Services = new \stdClass;
 		foreach (array_keys($this->setup) as $item) {
@@ -217,6 +233,15 @@ class TraceSmart {
 		}
 	}
 
+	/**
+     * Send the TraceSmart request and return the response.
+     *
+     * @param mixed  $setup
+     * @param mixed  $fields
+     * @param mixed  $param
+     *
+     * @return array
+     */
 	public function execute($setup, $fields, $param) {
 		if (!is_array($setup)) {
 			$setup = explode(',', $setup);
