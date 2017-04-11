@@ -9,8 +9,8 @@ declare(strict_types = 1);
 namespace Cli\Command;
 
 use Cli\Utils;
-use idOS\SDK;
 use idOS\Auth\CredentialToken;
+use idOS\SDK;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger as Monolog;
 use Monolog\Processor\ProcessIdProcessor;
@@ -39,6 +39,12 @@ class Daemon extends AbstractCommand {
                 'd',
                 InputOption::VALUE_NONE,
                 'Development mode'
+            )
+            ->addOption(
+                'healthCheck',
+                'h',
+                InputOption::VALUE_NONE,
+                'Enable queue health check'
             )
             ->addOption(
                 'logFile',
@@ -96,6 +102,12 @@ class Daemon extends AbstractCommand {
             error_reporting(-1);
         }
 
+        // Health check
+        $healthCheck = ! empty($input->getOption('healthCheck'));
+        if ($healthCheck) {
+            $logger->debug('Enabling health check');
+        }
+
         // Gearman Worker function name setup
         $functionName = $input->getArgument('functionName');
         if ((empty($functionName)) || (! preg_match('/^[a-zA-Z0-9\._-]+$/', $functionName))) {
@@ -129,8 +141,8 @@ class Daemon extends AbstractCommand {
 
         $logger->debug('Registering Worker Function', ['function' => $functionName]);
 
-        $jobCount = 0;
-        $lastJob  = 0;
+        $jobCount          = 0;
+        $lastJob           = 0;
         $traceSmartHandler = new Utils\TraceSmart($this->config['tracesmart']);
 
         /*
@@ -159,7 +171,7 @@ class Daemon extends AbstractCommand {
                         $param = isset($jobData['data']['param']) ? $jobData['data']['param'] : '';
                         unset($jobData['data']['setup']);
                         unset($jobData['data']['param']);
-                        
+
                         $fields = $jobData['data'];
                         $result = $traceSmartHandler->execute($setup, $fields, $param);
                         break;
@@ -231,12 +243,12 @@ class Daemon extends AbstractCommand {
                         exit;
                     }
 
-                    if (((time() - $bootTime) > 10) && ((time() - $lastJob) > 10)) {
+                    if (($healthCheck) && ((time() - $bootTime) > 10) && ((time() - $lastJob) > 10)) {
                         $logger->info(
                             'Inactivity detected, restarting',
                             [
                                 'runtime' => time() - $bootTime,
-                                'jobs' => $jobCount
+                                'jobs'    => $jobCount
                             ]
                         );
                         exit;
