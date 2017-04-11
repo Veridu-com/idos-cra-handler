@@ -42,7 +42,7 @@ class Daemon extends AbstractCommand {
             )
             ->addOption(
                 'healthCheck',
-                'h',
+                'c',
                 InputOption::VALUE_NONE,
                 'Enable queue health check'
             )
