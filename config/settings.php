@@ -30,9 +30,9 @@ $appSettings = [
        'wsdl'   => Env::asString('IDOS_CRA_TRACESMART_ENDPOINT', 'https://iduws.tracesmart.co.uk/v3.3/?wsdl'),
        'auth' => [
             'veridu' => [
-                'user' => '***REMOVED***',
-                'pass' => '***REMOVED***',
-                'equifax' => '***REMOVED***'
+                'user' => Env::asString('IDOS_CRA_TRACESMART_USER', ''),
+                'pass' => Env::asString('IDOS_CRA_TRACESMART_PASS', ''),
+                'equifax' => Env::asString('IDOS_CRA_TRACESMART_EQUIFAX', '')
             ]
         ],
         'fields' => [
